@@ -1,0 +1,125 @@
+#Importing/Reading Data #
+mydata=read.csv('C:/Users/18045/Downloads/players_stats_by_season.csv',header=T)
+
+# Focusing only on players in the NBA #
+NBAData = mydata[which(mydata$League == 'NBA'),]
+summary(NBAData)
+
+#Relevant packages
+install.packages('tidyverse')
+library(tidyverse)
+
+# Exploring and Visualizing the progression of the 3-point shot
+
+NBAData$Year <- as.numeric(substring(NBAData$Season, 1, 4)) + 1 # Converting Season to a usable format #
+total_3PA <- NBAData %>% 
+  group_by(Year) %>% 
+  summarize(total_3PA = sum(X3PA, na.rm=TRUE))
+
+ggplot(total_3PA, aes(x=Year, y=total_3PA)) + # Plotting Results #
+  geom_line() +
+  geom_point() +
+  geom_smooth(method='lm') +
+  xlim(2000,2020) +
+  labs(title = "NBA Progression of Total 3-Point Attempts", x='Season',y='3PT Attempts') 
+  
+# 3-Point Shooting and True Shooting Percentages #
+
+NBAData$'3P%' <- (NBAData$X3PM / NBAData$X3PA)
+
+Team_3PT <- NBAData %>% # Comparing the mean 3P% for each team #
+  group_by(Team) %>%
+  summarize(Team_3PT = mean(`3P%`,na.rm=TRUE))
+
+# True Shooting Percentages is a newer metric that better analyzes
+# how efficient of a shooter a player is compared to FG% and 3P% #
+
+NBAData$`TS%` <- NBAData$PTS / (2*(NBAData$FGA+0.44*NBAData$FTA))
+
+#Creating a new dataset, every NBA player and their respective statistical averages
+
+PlayerAverages <- NBAData[which(NBAData$Stage == "Regular_Season"),] %>% 
+  select(c(Player, GP, PTS, REB, AST, STL, BLK, TOV, PF,height_cm,weight_kg,`TS%`)) %>% 
+  group_by(Player) %>% 
+  summarize_all(mean) %>% 
+  mutate(across(c(PTS, REB, AST, STL, BLK, TOV, PF),~./GP)) %>% 
+  mutate(height = height_cm/2.5)
+
+# Do taller NBA players tend to score more in the Regular Season compared to shorter 
+# players (or vice versa)? 
+
+Tall <- PlayerAverages[which(PlayerAverages$height >= mean(PlayerAverages$height)),3]
+Shorter <- PlayerAverages[which(PlayerAverages$height < mean(PlayerAverages$height)),3]
+
+t.test(Tall$PTS,Shorter$PTS)
+
+                   #Verifying Assumptions of T-test
+
+# 1. The observations are obviously independent because each obs. is a different player
+
+summary(Tall)
+summary(Shorter)
+
+hist(Tall$PTS)
+shapiro.test(Tall$PTS)           # 2. Even though the tests indicate the samples are not normal,
+qqnorm(Tall$PTS)
+hist(Shorter$PTS)                # we can assume approx. normality by Central Limit Theorem
+shapiro.test(Shorter$PTS)
+qqnorm(Shorter$PTS)
+
+var.test(Tall$PTS, Shorter$PTS)  # 3. Based on the large p-value, we can verify homogeneity of variance
+
+
+
+# Predicting points scored based on a variety of factors:
+# games played, draft round, and shooting percentages #
+
+NBAData_1 <- NBAData[which(NBAData$Stage == "Regular_Season" & NBAData$Year > 2014),] %>%
+  select(c(Player, GP, PTS, draft_round, `TS%`)) %>% 
+  group_by(Player) %>% 
+  summarize_all(mean) %>% 
+  mutate(draft_round = ifelse(is.na(draft_round),'Undrafted',draft_round))
+
+# Only using data from 2015 onward because the prominence of 3-point shooting in the current era #
+# In this scenario, a linear regression is acceptable #
+
+NBAData_2 <- NBAData_1[which(NBAData_1$GP > 20 | NBAData_1$`TS%` > 0),]
+model1 <- lm(PTS ~ GP+factor(draft_round)+`TS%`,data=NBAData_2)
+summary(model1)
+
+
+
+          # Verifying Assumptions
+
+install.packages('car')
+library(car)
+
+# Linear Relationships between independent and dependent variables
+plot(NBAData_2$GP,NBAData_2$PTS,)
+plot(NBAData_2$`TS%`,NBAData_2$PTS)
+
+# Checking for normality
+hist(NBAData_2$PTS)
+shapiro.test(NBAData_2$PTS)  
+qqnorm(NBAData_2$PTS)
+qqline(NBAData_2$PTS)
+
+plot(model1$fitted.values, model1$residuals) #The plot having no pattern indicates equal variance
+
+vif(model1) #Checking for multi-collinearity; what we want are VIF values less than 10
+
+# Perform a transformation of the data
+model2 <- lm(log(PTS) ~ GP+factor(draft_round)+`TS%`,data=NBAData_2)
+summary(model1)
+
+plot(model2$fitted.values, model2$residuals)
+
+plot(NBAData_2$GP,log(NBAData_2$PTS,))
+plot(NBAData_2$`TS%`,log(NBAData_2$PTS))
+
+vif(model2)
+
+hist(log(NBAData_2$PTS))
+shapiro.test(log(NBAData_2$PTS)) 
+qqnorm(log(NBAData_2$PTS))
+qqline(log(NBAData_2$PTS))
