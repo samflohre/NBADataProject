@@ -60,10 +60,10 @@ t.test(Tall$PTS,Shorter$PTS)
 summary(Tall)
 summary(Shorter)
 
-hist(Tall$PTS)
+hist(Tall$PTS,main = 'Distribution of Points-Per-Game for Taller Players')
 shapiro.test(Tall$PTS)           # 2. Even though the tests indicate the samples are not normal,
 qqnorm(Tall$PTS)
-hist(Shorter$PTS)                # we can assume approx. normality by Central Limit Theorem
+hist(Shorter$PTS,main='Distribution of Points-Per-Game for Shorter Players')                # we can assume approx. normality by Central Limit Theorem
 shapiro.test(Shorter$PTS)
 qqnorm(Shorter$PTS)
 
@@ -110,12 +110,19 @@ vif(model1) #Checking for multi-collinearity; what we want are VIF values less t
 
 # Perform a transformation of the data
 model2 <- lm(log(PTS) ~ GP+factor(draft_round)+`TS%`,data=NBAData_2)
-summary(model1)
+summary(model2)
 
 plot(model2$fitted.values, model2$residuals)
 
 plot(NBAData_2$GP,log(NBAData_2$PTS,))
 plot(NBAData_2$`TS%`,log(NBAData_2$PTS))
+
+vif(model2)
+
+hist(log(NBAData_2$PTS))
+shapiro.test(log(NBAData_2$PTS)) 
+qqnorm(log(NBAData_2$PTS))
+qqline(log(NBAData_2$PTS))
 
 vif(model2)
 
