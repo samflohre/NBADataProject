@@ -47,11 +47,11 @@ PlayerAverages <- NBAData[which(NBAData$Stage == "Regular_Season"),] %>%
 
 # Do taller NBA players tend to score more in the Regular Season compared to shorter 
 # players (or vice versa)? 
-
+mean(PlayerAverages$height)
 Tall <- PlayerAverages[which(PlayerAverages$height >= mean(PlayerAverages$height)),3]
 Shorter <- PlayerAverages[which(PlayerAverages$height < mean(PlayerAverages$height)),3]
 
-t.test(Tall$PTS,Shorter$PTS)
+t.test(Tall$PTS,Shorter$PTS, var.equal=TRUE)
 
                    #Verifying Assumptions of T-test
 
@@ -84,6 +84,7 @@ NBAData_1 <- NBAData[which(NBAData$Stage == "Regular_Season" & NBAData$Year > 20
 # In this scenario, a linear regression is acceptable #
 
 NBAData_2 <- NBAData_1[which(NBAData_1$GP > 20 | NBAData_1$`TS%` > 0),]
+
 model1 <- lm(PTS ~ GP+factor(draft_round)+`TS%`,data=NBAData_2)
 summary(model1)
 
@@ -93,22 +94,26 @@ summary(model1)
 
 install.packages('car')
 library(car)
-
+par(mfrow=c(2,2))
 # Linear Relationships between independent and dependent variables
 plot(NBAData_2$GP,NBAData_2$PTS,)
 plot(NBAData_2$`TS%`,NBAData_2$PTS)
 
 # Checking for normality
-hist(NBAData_2$PTS)
-shapiro.test(NBAData_2$PTS)  
-qqnorm(NBAData_2$PTS)
-qqline(NBAData_2$PTS)
+hist(model1$residuals)
+shapiro.test(model1$residuals)  
+qqnorm(model1$residuals)
+qqline(model1$residuals)
 
 plot(model1$fitted.values, model1$residuals) #The plot having no pattern indicates equal variance
 
 vif(model1) #Checking for multi-collinearity; what we want are VIF values less than 10
 
 # Perform a transformation of the data
+install.packages("MASS")
+library(MASS)
+bc <- boxcox(model1)
+
 model2 <- lm(log(PTS) ~ GP+factor(draft_round)+`TS%`,data=NBAData_2)
 summary(model2)
 
@@ -119,14 +124,7 @@ plot(NBAData_2$`TS%`,log(NBAData_2$PTS))
 
 vif(model2)
 
-hist(log(NBAData_2$PTS))
-shapiro.test(log(NBAData_2$PTS)) 
-qqnorm(log(NBAData_2$PTS))
-qqline(log(NBAData_2$PTS))
-
-vif(model2)
-
-hist(log(NBAData_2$PTS))
-shapiro.test(log(NBAData_2$PTS)) 
-qqnorm(log(NBAData_2$PTS))
-qqline(log(NBAData_2$PTS))
+hist(model2$residuals)
+shapiro.test(model2$residuals) 
+qqnorm(model2$residuals)
+qqline(model2$residuals)
